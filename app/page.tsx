@@ -5,7 +5,7 @@ import AntennaDiversitySimulation from '@/components/antenna-diversity-simulatio
 
 export default function Home() {
   return (
-    <main className="min-h-screen p-4">
+    <main className="min-h-screen p-4 bg-black">
       <AntennaDiversitySimulation />
       {/* <TestChart/> */}
     </main>
