@@ -203,13 +203,9 @@ const AntennaSimulation = () => {
       // Update constellation data with improved tracking
       if (i === 0) {
         setConstellationData(prev => [
-          ...prev.slice(-100),
-          { 
-            x: rxSignal.real,
-            y: rxSignal.imag,
-            snr: snr
-          }
-        ]);
+            ...prev.slice(-100),
+            { x: rxSignal.real, y: rxSignal.imag, snr: snr }
+          ]);
       }
     }
 
@@ -260,7 +256,12 @@ const AntennaSimulation = () => {
         setSignalData(prevData => {
           try {
             const newPoint = generateSignalPoint(prevData.length);
-            return [...prevData.slice(1), { time: prevData.length, ...newPoint }];
+            
+            // Create a new array with `prevData` minus the first element, and add `newPoint` at the end
+            const updatedData = prevData.slice(1); // Removes the first element
+            updatedData.push({ time: prevData.length, ...newPoint }); // Adds the new data point
+  
+            return updatedData;
           } catch (error) {
             console.error('Error in simulation loop:', error);
             return prevData;
@@ -273,6 +274,7 @@ const AntennaSimulation = () => {
     };
   }, [isRunning, noiseLevel, numTxAntennas, numRxAntennas, frequency, mode, 
       fadingType, diversityTechnique, modulationScheme, antennaStrengths]);
+  
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
