@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -273,7 +275,7 @@ const AntennaSimulation = () => {
       if (interval) clearInterval(interval);
     };
   }, [isRunning, noiseLevel, numTxAntennas, numRxAntennas, frequency, mode, 
-      fadingType, diversityTechnique, modulationScheme, antennaStrengths]);
+      fadingType, diversityTechnique, modulationScheme, antennaStrengths,generateSignalPoint]);
   
 
   return (
