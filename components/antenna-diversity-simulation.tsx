@@ -1,5 +1,4 @@
 /* eslint-disable */
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -10,7 +9,7 @@ import { Play, Pause, Antenna, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AntennaSimulation = () => {
-  // Enhanced state management
+  // State management
   const [isRunning, setIsRunning] = useState(false);
   const [mode, setMode] = useState('simo');
   const [numTxAntennas, setNumTxAntennas] = useState(1);
@@ -27,9 +26,10 @@ const AntennaSimulation = () => {
   const powerWindowRef = useRef([]);
   const errorCountRef = useRef(0);
   const totalBitsRef = useRef(0);
+  const timeCounterRef = useRef(0);
   const WINDOW_SIZE = 50;
 
-  // Memoized configuration options
+  // Configuration options
   const configOptions = useMemo(() => ({
     modes: [
       { value: 'simo', label: 'SIMO (Single Input Multiple Output)' },
@@ -50,13 +50,13 @@ const AntennaSimulation = () => {
     ]
   }), []);
 
-  // Enhanced Gaussian noise generation with Box-Muller transform
+  // Gaussian noise generation
   function generateGaussianNoise(stdDev) {
     let u1, u2;
     do {
       u1 = Math.random();
       u2 = Math.random();
-    } while (u1 <= Number.EPSILON);  // Avoid log(0)
+    } while (u1 <= Number.EPSILON);
     
     const mag = stdDev * Math.sqrt(-2.0 * Math.log(u1));
     const z1 = mag * Math.cos(2 * Math.PI * u2);
@@ -64,7 +64,7 @@ const AntennaSimulation = () => {
     return { real: z1, imag: z2 };
   }
 
-  // Enhanced Rician fading with configurable K-factor
+  // Rician fading generation
   function generateRicianFading(kFactor = 1) {
     const gaussian = generateGaussianNoise(1/Math.sqrt(2));
     const los = Math.sqrt(kFactor / (kFactor + 1));
@@ -79,7 +79,7 @@ const AntennaSimulation = () => {
     };
   }
 
-  // Improved fading generation with error handling
+  // Fading generation
   function generateFading() {
     try {
       switch (fadingType) {
@@ -99,19 +99,18 @@ const AntennaSimulation = () => {
     }
   }
 
-  // Enhanced modulation with error detection
+  // Signal modulation
   function modulateSignal(signal) {
     try {
       switch (modulationScheme) {
         case 'qpsk': {
           const symbol = Math.floor(Math.random() * 4);
           const phase = (symbol * Math.PI / 2) + (Math.PI / 4);
-          const modulatedSignal = {
+          return {
             real: signal * Math.cos(phase),
             imag: signal * Math.sin(phase),
             originalSymbol: symbol
           };
-          return modulatedSignal;
         }
         case 'bpsk':
         default: {
@@ -129,9 +128,10 @@ const AntennaSimulation = () => {
     }
   }
 
-  // Improved signal combining with SNR estimation
+  // Signal combining
   function combineSignals(signals, snrs) {
     try {
+      if (signals.length === 1) return signals[0]; // Single receiver case
       switch (diversityTechnique) {
         case 'sc':
           const strongestIndex = snrs.indexOf(Math.max(...snrs));
@@ -140,7 +140,7 @@ const AntennaSimulation = () => {
           return signals.reduce((sum, s) => sum + s, 0) / signals.length;
         case 'mrc':
         default:
-          const weights = snrs.map(snr => Math.pow(10, snr/10));
+          const weights = snrs.map(snr => Math.pow(10, snr / 10));
           const totalWeight = weights.reduce((sum, w) => sum + w, 0);
           return signals.reduce((sum, s, i) => sum + s * weights[i], 0) / totalWeight;
       }
@@ -149,27 +149,30 @@ const AntennaSimulation = () => {
       return signals[0] || 0;
     }
   }
+    
 
-  // Enhanced signal point generation with error tracking
-  function generateSignalPoint(time) {
+  // Signal point generation
+  function generateSignalPoint(absoluteTime) {
     const point = {
-      time,
+      time: absoluteTime,
+      displayTime: absoluteTime % WINDOW_SIZE,
+      absoluteTime: absoluteTime,
       snr: 0,
       baseSignal: 0,
       ber: errorRate
     };
 
-    // Generate transmit signals with phase diversity
+    // Generate transmit signals
     const txSignals = [];
     for (let i = 0; i < numTxAntennas; i++) {
       const baseSignal = antennaStrengths[i] * 
-        Math.sin(2 * Math.PI * frequency * time * 0.1 + (i * Math.PI / numTxAntennas));
+        Math.sin(2 * Math.PI * frequency * absoluteTime * 0.1 + (i * Math.PI / numTxAntennas));
       const modulatedSignal = modulateSignal(baseSignal);
       point[`tx${i + 1}`] = baseSignal;
       txSignals.push({ ...modulatedSignal, strength: antennaStrengths[i] });
     }
 
-    // Process receive signals with improved channel estimation
+    // Process receive signals
     const rxSignals = [];
     const rxSNRs = [];
     
@@ -197,25 +200,21 @@ const AntennaSimulation = () => {
       point[`rx${i + 1}`] = rxMagnitude;
       rxSignals.push(rxMagnitude);
 
-      // Calculate SNR for this antenna
       const noisePower = noiseLevel * noiseLevel;
       const snr = 10 * Math.log10(signalPower / noisePower);
       rxSNRs.push(snr);
 
-      // Update constellation data with improved tracking
       if (i === 0) {
         setConstellationData(prev => [
-            ...prev.slice(-100),
-            { x: rxSignal.real, y: rxSignal.imag, snr: snr }
-          ]);
+          ...prev.slice(-100),
+          { x: rxSignal.real, y: rxSignal.imag, snr: snr }
+        ]);
       }
     }
 
-    // Calculate combined signal and update error tracking
     const combinedSignal = combineSignals(rxSignals, rxSNRs);
     point.combinedSignal = combinedSignal;
 
-    // Update error rate calculation
     const decodedSymbol = combinedSignal > 0 ? 1 : 0;
     if (decodedSymbol !== txSignals[0].originalSymbol) {
       errorCountRef.current++;
@@ -226,7 +225,6 @@ const AntennaSimulation = () => {
       setErrorRate(errorCountRef.current / totalBitsRef.current);
     }
 
-    // Calculate overall SNR
     powerWindowRef.current = [...powerWindowRef.current.slice(-WINDOW_SIZE + 1), combinedSignal];
     const signalPower = powerWindowRef.current.reduce((acc, val) => acc + val * val, 0) / WINDOW_SIZE;
     const noisePower = noiseLevel * noiseLevel;
@@ -235,12 +233,13 @@ const AntennaSimulation = () => {
     return point;
   }
 
-  // Initialize simulation with error handling
+  // Initialize simulation
   useEffect(() => {
     try {
-      const initialData = Array.from({ length: 50 }, (_, index) => ({
-        time: index,
-        ...generateSignalPoint(index)
+      timeCounterRef.current = 0;
+      const initialData = Array.from({ length: WINDOW_SIZE }, (_, index) => ({
+        ...generateSignalPoint(index),
+        displayTime: index
       }));
       setSignalData(initialData);
       errorCountRef.current = 0;
@@ -250,19 +249,21 @@ const AntennaSimulation = () => {
     }
   }, []);
 
-  // Main simulation loop with cleanup
+  // Simulation loop
   useEffect(() => {
     let interval;
     if (isRunning) {
       interval = setInterval(() => {
+        timeCounterRef.current += 1;
+        
         setSignalData(prevData => {
           try {
-            const newPoint = generateSignalPoint(prevData.length);
-            
-            // Create a new array with `prevData` minus the first element, and add `newPoint` at the end
-            const updatedData = prevData.slice(1); // Removes the first element
-            updatedData.push({ time: prevData.length, ...newPoint }); // Adds the new data point
-  
+            const newPoint = generateSignalPoint(timeCounterRef.current);
+            const updatedData = prevData.slice(1);
+            updatedData.push({
+              ...newPoint,
+              displayTime: prevData[prevData.length - 1].displayTime + 1
+            });
             return updatedData;
           } catch (error) {
             console.error('Error in simulation loop:', error);
@@ -275,8 +276,7 @@ const AntennaSimulation = () => {
       if (interval) clearInterval(interval);
     };
   }, [isRunning, noiseLevel, numTxAntennas, numRxAntennas, frequency, mode, 
-      fadingType, diversityTechnique, modulationScheme, antennaStrengths,generateSignalPoint]);
-  
+      fadingType, diversityTechnique, modulationScheme, antennaStrengths]);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
@@ -293,7 +293,8 @@ const AntennaSimulation = () => {
               Current BER: {(errorRate * 100).toFixed(2)}% | 
               Mode: {mode.toUpperCase()} | 
               Diversity: {diversityTechnique.toUpperCase()} | 
-              Modulation: {modulationScheme.toUpperCase()}
+              Modulation: {modulationScheme.toUpperCase()} |
+              Time: {timeCounterRef.current}s
             </AlertDescription>
           </Alert>
 
@@ -334,7 +335,7 @@ const AntennaSimulation = () => {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <label className="text-sm font-medium">Modulation Scheme</label>
                   <Select value={modulationScheme} onValueChange={setModulationScheme}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
@@ -346,7 +347,7 @@ const AntennaSimulation = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </div> */}
 
                 {mode === 'mimo' && (
                   <div className="space-y-2">
