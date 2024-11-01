@@ -290,7 +290,7 @@ const AntennaSimulation = () => {
         <CardContent>
           <Alert className="mb-4">
             <AlertDescription>
-              Current BER: {(errorRate * 100).toFixed(2)}% | 
+              {/* Current BER: {(errorRate * 100).toFixed(2)}% |  */}
               Mode: {mode.toUpperCase()} | 
               Diversity: {diversityTechnique.toUpperCase()} | 
               Modulation: {modulationScheme.toUpperCase()} |

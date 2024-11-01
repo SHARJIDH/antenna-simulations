@@ -7,6 +7,7 @@ import { Antenna, Radio, Waves, ArrowRight } from 'lucide-react';
 
 const AntennaSimulationOne = () => {
   const [snrValue, setSnrValue] = useState(10);
+  const [kFactor, setKFactor] = useState(5);
   
   // Generate BER vs SNR data
   const generateBERData = (antennaCount) => {
@@ -20,28 +21,50 @@ const AntennaSimulationOne = () => {
       };
     });
   };
+  const generateRayleighData = () => {
+    return Array.from({ length: 50 }, (_, i) => {
+      const x = i / 5;
+      // PDF of Rayleigh distribution
+      const pdf = (x / Math.pow(snrValue, 2)) * Math.exp(-Math.pow(x, 2) / (2 * Math.pow(snrValue, 2)));
+      return {
+        x,
+        pdf: pdf.toFixed(4),
+        name: x.toFixed(1)
+      };
+    });
+  };
+  const generateRicianData = () => {
+    return Array.from({ length: 50 }, (_, i) => {
+      const x = i / 5;
+      // Simplified Rician PDF (approximation)
+      const pdf = (x / Math.pow(snrValue, 2)) * 
+                 Math.exp(-(Math.pow(x, 2) + Math.pow(kFactor, 2)) / (2 * Math.pow(snrValue, 2))) *
+                 Math.exp(x * kFactor / Math.pow(snrValue, 2));
+      return {
+        x,
+        pdf: pdf.toFixed(4),
+        name: x.toFixed(1)
+      };
+    });
+  };
+
 
   // Simulation data for different antenna configurations
   const singleAntennaData = generateBERData(1);
   const twoAntennaData = generateBERData(2);
   const fourAntennaData = generateBERData(4);
+  const rayleighData = generateRayleighData();
+  const ricianData = generateRicianData();
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
-      {/* <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">
-            Antenna Diversity Educational Platform
-          </CardTitle>
-        </CardHeader>
-      </Card> */}
-
       <Tabs defaultValue="overview">
-        <TabsList className="grid grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="simo">SIMO</TabsTrigger>
           <TabsTrigger value="miso">MISO</TabsTrigger>
           <TabsTrigger value="mimo">MIMO</TabsTrigger>
+          <TabsTrigger value="fading">Fading Types</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -97,6 +120,44 @@ const AntennaSimulationOne = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-8">
+                <h4 className="text-lg font-semibold mb-4">Diversity Combining Techniques</h4>
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="p-4 bg-gray-50 rounded">
+                    <h5 className="font-semibold mb-2">Maximum Ratio Combining (MRC)</h5>
+                    <p className="mb-2">Weights signals based on their SNR for optimal combining</p>
+                    <div className="bg-white p-3 rounded border">
+                      <p className="font-mono">y = Σ(wᵢ × rᵢ)</p>
+                      <p className="text-sm mt-1">wᵢ = αᵢ* / N₀</p>
+                      <p className="text-sm">where αᵢ is channel gain</p>
+                    </div>
+                    <p className="mt-2 text-sm">Achieves maximum SNR improvement</p>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 rounded">
+                    <h5 className="font-semibold mb-2">Selection Combining (SC)</h5>
+                    <p className="mb-2">Selects the strongest signal among available branches</p>
+                    <div className="bg-white p-3 rounded border">
+                      <p className="font-mono">y = max(r₁, r₂, ..., rₙ)</p>
+                      <p className="text-sm mt-1">SNR_out = max(SNR₁, SNR₂, ..., SNRₙ)</p>
+                    </div>
+                    <p className="mt-2 text-sm">Simple implementation, lower complexity</p>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 rounded">
+                    <h5 className="font-semibold mb-2">Equal Gain Combining (EGC)</h5>
+                    <p className="mb-2">Combines signals with equal weights after phase alignment</p>
+                    <div className="bg-white p-3 rounded border">
+                      <p className="font-mono">y = Σ(rᵢ × e^(-jθᵢ))</p>
+                      <p className="text-sm mt-1">where θᵢ is phase of branch i</p>
+                    </div>
+                    <p className="mt-2 text-sm">Good performance with simpler implementation than MRC</p>
+                  </div>
+                </div>
+
+                
               </div>
             </CardContent>
           </Card>
@@ -220,6 +281,103 @@ const AntennaSimulationOne = () => {
                       <li>Improved spectral efficiency</li>
                       <li>Better capacity scaling</li>
                     </ul>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="fading">
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold mb-4">Wireless Channel Fading Models</h3>
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <div className="bg-gray-50 p-4 rounded">
+                    <h4 className="font-semibold mb-2">Rayleigh Fading</h4>
+                    <div className="bg-white p-3 rounded border space-y-2">
+                      <p className="font-medium">PDF:</p>
+                      <p className="font-mono">
+                        f(r) = (r/σ²)exp(-r²/2σ²)
+                      </p>
+                      <p className="font-medium mt-2">Channel Response:</p>
+                      <p className="font-mono">
+                        h(t) = hᵢ(t) + jhₖ(t)
+                      </p>
+                      <p className="font-medium mt-2">SNR:</p>
+                      <p className="font-mono">
+                        γ = (|h|²Eₛ)/N₀
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm">Used when there is no line-of-sight (NLOS) path</p>
+                    
+                    {/* <div className="mt-4 p-4">
+                      <LineChart width={400} height={200} data={rayleighData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" label={{ value: 'Envelope', position: 'bottom' }} />
+                        <YAxis label={{ value: 'PDF', angle: -90, position: 'left' }} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="pdf" stroke="#8884d8" name="Rayleigh PDF" />
+                      </LineChart>
+                    </div> */}
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-gray-50 p-4 rounded">
+                    <h4 className="font-semibold mb-2">Rician Fading</h4>
+                    <div className="bg-white p-3 rounded border space-y-2">
+                      <p className="font-medium">PDF:</p>
+                      <p className="font-mono">
+                        f(r) = (r/σ²)exp(-(r² + A²)/2σ²)I₀(rA/σ²)
+                      </p>
+                      <p className="font-medium mt-2">K-Factor:</p>
+                      <p className="font-mono">
+                        K = A²/2σ² (ratio of LOS to scattered power)
+                      </p>
+                      <p className="font-medium mt-2">Channel Response:</p>
+                      <p className="font-mono">
+                        h(t) = h_los(t) + h_scatter(t)
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm">Used when there is a dominant line-of-sight (LOS) path</p>
+
+                    {/* <div className="mt-4">
+                      <LineChart width={400} height={200} data={ricianData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" label={{ value: 'Envelope', position: 'bottom' }} />
+                        <YAxis label={{ value: 'PDF', angle: -90, position: 'left' }} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="pdf" stroke="#82ca9d" name="Rician PDF" />
+                      </LineChart>
+                    </div> */}
+                  </div>
+                </div>
+
+                <div className="col-span-2 bg-gray-50 p-4 rounded">
+                  <h4 className="font-semibold mb-2">Key Characteristics Comparison</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-3 rounded border">
+                      <h5 className="font-medium mb-2">Rayleigh Fading</h5>
+                      <ul className="list-disc pl-6">
+                        <li>No dominant LOS component</li>
+                        <li>Phase uniformly distributed [0, 2π]</li>
+                        <li>Envelope follows Rayleigh distribution</li>
+                        <li>Power follows exponential distribution</li>
+                        <li>More severe fading conditions</li>
+                      </ul>
+                    </div>
+                    <div className="bg-white p-3 rounded border">
+                      <h5 className="font-medium mb-2">Rician Fading</h5>
+                      <ul className="list-disc pl-6">
+                        <li>Strong LOS component present</li>
+                        <li>K-factor determines fading severity</li>
+                        <li>Envelope follows Rician distribution</li>
+                        <li>As K → ∞, approaches AWGN channel</li>
+                        <li>As K → 0, approaches Rayleigh fading</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
