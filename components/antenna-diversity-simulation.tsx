@@ -1,27 +1,46 @@
 /* eslint-disable */
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
-import { Play, Pause, Antenna, Info,Radio, RadioWaves } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import Image from 'next/image';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ScatterChart,
+  Scatter,
+} from "recharts";
+import { Play, Pause, Antenna, Info, Radio, RadioWaves } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import Image from "next/image";
 
 const AntennaSimulation = () => {
   // State management
   const [isRunning, setIsRunning] = useState(false);
-  const [mode, setMode] = useState('simo');
+  const [mode, setMode] = useState("simo");
   const [numTxAntennas, setNumTxAntennas] = useState(1);
   const [numRxAntennas, setNumRxAntennas] = useState(2);
   const [frequency, setFrequency] = useState(1);
   const [noiseLevel, setNoiseLevel] = useState(0.5);
-  const [fadingType, setFadingType] = useState('rayleigh');
-  const [diversityTechnique, setDiversityTechnique] = useState('mrc');
-  const [modulationScheme, setModulationScheme] = useState('bpsk');
+  const [fadingType, setFadingType] = useState("rayleigh");
+  const [diversityTechnique, setDiversityTechnique] = useState("mrc");
+  const [modulationScheme, setModulationScheme] = useState("bpsk");
   const [signalData, setSignalData] = useState([]);
   const [constellationData, setConstellationData] = useState([]);
+  const [constellationDataCombined, setConstellationDataCombined] = useState(
+    []
+  );
   const [antennaStrengths, setAntennaStrengths] = useState([1, 1, 1, 1]);
   const [errorRate, setErrorRate] = useState(0);
   const powerWindowRef = useRef([]);
@@ -29,27 +48,31 @@ const AntennaSimulation = () => {
   const totalBitsRef = useRef(0);
   const timeCounterRef = useRef(0);
   const WINDOW_SIZE = 50;
+  const [decodedConstellationData, setDecodedConstellationData] = useState([]);
 
   // Configuration options
-  const configOptions = useMemo(() => ({
-    modes: [
-      { value: 'simo', label: 'SIMO (Single Input Multiple Output)' },
-      { value: 'mimo', label: 'MIMO (Multiple Input Multiple Output)' }
-    ],
-    diversityTechniques: [
-      { value: 'mrc', label: 'Maximum Ratio Combining' },
-      { value: 'sc', label: 'Selection Combining' },
-      { value: 'egc', label: 'Equal Gain Combining' }
-    ],
-    modulationSchemes: [
-      { value: 'bpsk', label: 'BPSK (Binary Phase Shift Keying)' },
-      { value: 'qpsk', label: 'QPSK (Quadrature Phase Shift Keying)' }
-    ],
-    fadingTypes: [
-      { value: 'rayleigh', label: 'Rayleigh Fading' },
-      { value: 'rician', label: 'Rician Fading' }
-    ]
-  }), []);
+  const configOptions = useMemo(
+    () => ({
+      modes: [
+        { value: "simo", label: "SIMO (Single Input Multiple Output)" },
+        { value: "mimo", label: "MIMO (Multiple Input Multiple Output)" },
+      ],
+      diversityTechniques: [
+        { value: "mrc", label: "Maximum Ratio Combining" },
+        { value: "sc", label: "Selection Combining" },
+        { value: "egc", label: "Equal Gain Combining" },
+      ],
+      modulationSchemes: [
+        { value: "bpsk", label: "BPSK (Binary Phase Shift Keying)" },
+        { value: "qpsk", label: "QPSK (Quadrature Phase Shift Keying)" },
+      ],
+      fadingTypes: [
+        { value: "rayleigh", label: "Rayleigh Fading" },
+        { value: "rician", label: "Rician Fading" },
+      ],
+    }),
+    []
+  );
 
   // Gaussian noise generation
   function generateGaussianNoise(stdDev) {
@@ -58,7 +81,7 @@ const AntennaSimulation = () => {
       u1 = Math.random();
       u2 = Math.random();
     } while (u1 <= Number.EPSILON);
-    
+
     const mag = stdDev * Math.sqrt(-2.0 * Math.log(u1));
     const z1 = mag * Math.cos(2 * Math.PI * u2);
     const z2 = mag * Math.sin(2 * Math.PI * u2);
@@ -73,16 +96,16 @@ const AntennaSimulation = () => {
 
   // Rician fading generation
   function generateRicianFading(kFactor = 1) {
-    const gaussian = generateGaussianNoise(1/Math.sqrt(2));
+    const gaussian = generateGaussianNoise(1 / Math.sqrt(2));
     const los = Math.sqrt(kFactor / (kFactor + 1));
     const scatter = Math.sqrt(1 / (kFactor + 1));
-    
+
     const realPart = los + scatter * gaussian.real;
     const imagPart = scatter * gaussian.imag;
-    
+
     return {
       magnitude: Math.sqrt(realPart * realPart + imagPart * imagPart),
-      phase: Math.atan2(imagPart, realPart)
+      phase: Math.atan2(imagPart, realPart),
     };
   }
 
@@ -90,18 +113,20 @@ const AntennaSimulation = () => {
   function generateFading() {
     try {
       switch (fadingType) {
-        case 'rician':
+        case "rician":
           return generateRicianFading();
-        case 'rayleigh':
+        case "rayleigh":
         default:
-          const gaussian = generateGaussianNoise(1/Math.sqrt(2));
+          const gaussian = generateGaussianNoise(1 / Math.sqrt(2));
           return {
-            magnitude: Math.sqrt(gaussian.real * gaussian.real + gaussian.imag * gaussian.imag),
-            phase: Math.atan2(gaussian.imag, gaussian.real)
+            magnitude: Math.sqrt(
+              gaussian.real * gaussian.real + gaussian.imag * gaussian.imag
+            ),
+            phase: Math.atan2(gaussian.imag, gaussian.real),
           };
       }
     } catch (error) {
-      console.error('Error generating fading:', error);
+      console.error("Error generating fading:", error);
       return { magnitude: 1, phase: 0 };
     }
   }
@@ -110,27 +135,27 @@ const AntennaSimulation = () => {
   function modulateSignal(signal) {
     try {
       switch (modulationScheme) {
-        case 'qpsk': {
+        case "qpsk": {
           const symbol = Math.floor(Math.random() * 4);
-          const phase = (symbol * Math.PI / 2) + (Math.PI / 4);
+          const phase = (symbol * Math.PI) / 2 + Math.PI / 4;
           return {
             real: signal * Math.cos(phase),
             imag: signal * Math.sin(phase),
-            originalSymbol: symbol
+            originalSymbol: symbol,
           };
         }
-        case 'bpsk':
+        case "bpsk":
         default: {
           const bit = Math.random() > 0.5 ? 1 : -1;
           return {
             real: signal * bit,
             imag: 0,
-            originalSymbol: bit > 0 ? 1 : 0
+            originalSymbol: bit > 0 ? 1 : 0,
           };
         }
       }
     } catch (error) {
-      console.error('Error in modulation:', error);
+      console.error("Error in modulation:", error);
       return { real: signal, imag: 0, originalSymbol: 0 };
     }
   }
@@ -141,32 +166,39 @@ const AntennaSimulation = () => {
     if (signals.length === 1) return signals[0];
 
     switch (diversityTechnique) {
-      case 'sc': {
+      case "sc": {
         const strongestIndex = snrs.indexOf(Math.max(...snrs));
         return signals[strongestIndex];
       }
-      case 'egc': {
-        const normalizedSignals = signals.map(s => ({
+      case "egc": {
+        const normalizedSignals = signals.map((s) => ({
           real: s.real / Math.sqrt(s.real * s.real + s.imag * s.imag),
-          imag: s.imag / Math.sqrt(s.real * s.real + s.imag * s.imag)
+          imag: s.imag / Math.sqrt(s.real * s.real + s.imag * s.imag),
         }));
         return {
-          real: normalizedSignals.reduce((sum, s) => sum + s.real, 0) / signals.length,
-          imag: normalizedSignals.reduce((sum, s) => sum + s.imag, 0) / signals.length
+          real:
+            normalizedSignals.reduce((sum, s) => sum + s.real, 0) /
+            signals.length,
+          imag:
+            normalizedSignals.reduce((sum, s) => sum + s.imag, 0) /
+            signals.length,
         };
       }
-      case 'mrc':
+      case "mrc":
       default: {
-        const weights = snrs.map(snr => Math.pow(10, snr / 20)); // Convert dB to linear scale
+        const weights = snrs.map((snr) => Math.pow(10, snr / 20)); // Convert dB to linear scale
         const totalWeight = weights.reduce((sum, w) => sum + w, 0);
         return {
-          real: signals.reduce((sum, s, i) => sum + s.real * weights[i], 0) / totalWeight,
-          imag: signals.reduce((sum, s, i) => sum + s.imag * weights[i], 0) / totalWeight
+          real:
+            signals.reduce((sum, s, i) => sum + s.real * weights[i], 0) /
+            totalWeight,
+          imag:
+            signals.reduce((sum, s, i) => sum + s.imag * weights[i], 0) /
+            totalWeight,
         };
       }
     }
   }
-    
 
   // Signal point generation
   function generateSignalPoint(absoluteTime) {
@@ -176,16 +208,22 @@ const AntennaSimulation = () => {
       absoluteTime: absoluteTime,
       snr: 0,
       baseSignal: 0,
-      ber: errorRate
+      ber: errorRate,
     };
 
     // Generate transmit signals
     const txSignals = [];
-    const rxSignalsArray = Array(numRxAntennas).fill().map(() => []);
-    
+    const rxSignalsArray = Array(numRxAntennas)
+      .fill()
+      .map(() => []);
+
     for (let i = 0; i < numTxAntennas; i++) {
-      const baseSignal = antennaStrengths[i] * 
-        Math.sin(2 * Math.PI * frequency * absoluteTime * 0.1 + (i * Math.PI / numTxAntennas));
+      const baseSignal =
+        antennaStrengths[i] *
+        Math.sin(
+          2 * Math.PI * frequency * absoluteTime * 0.1 +
+            (i * Math.PI) / numTxAntennas
+        );
       point[`tx${i + 1}`] = baseSignal;
       txSignals.push({ real: baseSignal, imag: 0 });
     }
@@ -193,16 +231,19 @@ const AntennaSimulation = () => {
     // Process receive signals with improved combining
     const rxSignals = [];
     const rxSNRs = [];
-    
+
     for (let i = 0; i < numRxAntennas; i++) {
       let rxSignal = { real: 0, imag: 0 };
       let signalPower = 0;
-      
+
       for (let j = 0; j < numTxAntennas; j++) {
         const channelGain = noiseLevel <= Number.EPSILON ? 1 : Math.random();
-        signalPower += channelGain * channelGain * 
-          (txSignals[j].real * txSignals[j].real + txSignals[j].imag * txSignals[j].imag);
-        
+        signalPower +=
+          channelGain *
+          channelGain *
+          (txSignals[j].real * txSignals[j].real +
+            txSignals[j].imag * txSignals[j].imag);
+
         rxSignal.real += channelGain * txSignals[j].real;
         rxSignal.imag += channelGain * txSignals[j].imag;
       }
@@ -213,38 +254,89 @@ const AntennaSimulation = () => {
         rxSignal.imag += noise.imag;
       }
 
-      const rxMagnitude = Math.sqrt(rxSignal.real * rxSignal.real + rxSignal.imag * rxSignal.imag);
+      const rxMagnitude = Math.sqrt(
+        rxSignal.real * rxSignal.real + rxSignal.imag * rxSignal.imag
+      );
       point[`rx${i + 1}`] = rxMagnitude;
       rxSignals.push(rxSignal);
 
       const snr = calculateSNR(rxMagnitude, noiseLevel);
       rxSNRs.push(snr);
 
-      setConstellationData(prev => [
+      setConstellationData((prev) => [
         ...prev.slice(-50),
-        { x: rxSignal.real, y: rxSignal.imag, antenna: i + 1 }
+        { x: rxSignal.real, y: rxSignal.imag, antenna: i + 1 },
       ]);
     }
 
     const combinedSignal = combineSignals(rxSignals, rxSNRs);
     point.combinedSignal = Math.sqrt(
-      combinedSignal.real * combinedSignal.real + 
-      combinedSignal.imag * combinedSignal.imag
+      combinedSignal.real * combinedSignal.real +
+        combinedSignal.imag * combinedSignal.imag
     );
 
-    setConstellationData(prev => [
+    setConstellationDataCombined((prev) => [
       ...prev.slice(-50),
-      { x: combinedSignal.real, y: combinedSignal.imag }
+      { x: combinedSignal.real, y: combinedSignal.imag },
+    ]);
+    let decodedSignal;
+    if (mode === "simo") {
+      // SIMO decoding
+      decodedSignal = {
+        real: combinedSignal.real > 0 ? 1 : -1,
+        imag: combinedSignal.imag > 0 ? 0 : 0,
+        originalSymbol:
+          combinedSignal.real > 0
+            ? combinedSignal.imag > 0
+              ? 3
+              : 1
+            : combinedSignal.imag > 0
+            ? 2
+            : 0,
+      };
+    } else {
+      // MIMO decoding
+      switch (modulationScheme) {
+        case "qpsk":
+          decodedSignal = {
+            real: combinedSignal.real > 0 ? 1 : -1,
+            imag: combinedSignal.imag > 0 ? 1 : -1,
+            originalSymbol:
+              combinedSignal.real > 0
+                ? combinedSignal.imag > 0
+                  ? 3
+                  : 1
+                : combinedSignal.imag > 0
+                ? 2
+                : 0,
+          };
+          break;
+        case "bpsk":
+        default:
+          decodedSignal = {
+            real: combinedSignal.real > 0 ? 1 : -1,
+            imag: 0,
+            originalSymbol: combinedSignal.real > 0 ? 1 : 0,
+          };
+          break;
+      }
+    }
+
+    setDecodedConstellationData((prev) => [
+      ...prev.slice(-50),
+      { x: decodedSignal.real, y: decodedSignal.imag },
     ]);
 
     // Update SNR calculation
     const signalPower = point.combinedSignal * point.combinedSignal;
     const noisePower = noiseLevel * noiseLevel;
-    point.snr = noiseLevel <= Number.EPSILON ? 100 : 10 * Math.log10(signalPower /( noisePower/numRxAntennas));
+    point.snr =
+      noiseLevel <= Number.EPSILON
+        ? 100
+        : 10 * Math.log10(signalPower / (noisePower / numRxAntennas));
 
     return point;
   }
-
 
   // Initialize simulation
   useEffect(() => {
@@ -252,13 +344,13 @@ const AntennaSimulation = () => {
       timeCounterRef.current = 0;
       const initialData = Array.from({ length: WINDOW_SIZE }, (_, index) => ({
         ...generateSignalPoint(index),
-        displayTime: index
+        displayTime: index,
       }));
       setSignalData(initialData);
       errorCountRef.current = 0;
       totalBitsRef.current = 0;
     } catch (error) {
-      console.error('Error initializing simulation:', error);
+      console.error("Error initializing simulation:", error);
     }
   }, []);
 
@@ -268,18 +360,18 @@ const AntennaSimulation = () => {
     if (isRunning) {
       interval = setInterval(() => {
         timeCounterRef.current += 1;
-        
-        setSignalData(prevData => {
+
+        setSignalData((prevData) => {
           try {
             const newPoint = generateSignalPoint(timeCounterRef.current);
             const updatedData = prevData.slice(1);
             updatedData.push({
               ...newPoint,
-              displayTime: prevData[prevData.length - 1].displayTime + 1
+              displayTime: prevData[prevData.length - 1].displayTime + 1,
             });
             return updatedData;
           } catch (error) {
-            console.error('Error in simulation loop:', error);
+            console.error("Error in simulation loop:", error);
             return prevData;
           }
         });
@@ -288,8 +380,18 @@ const AntennaSimulation = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, noiseLevel, numTxAntennas, numRxAntennas, frequency, mode, 
-      fadingType, diversityTechnique, modulationScheme, antennaStrengths]);
+  }, [
+    isRunning,
+    noiseLevel,
+    numTxAntennas,
+    numRxAntennas,
+    frequency,
+    mode,
+    fadingType,
+    diversityTechnique,
+    modulationScheme,
+    antennaStrengths,
+  ]);
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
@@ -304,10 +406,9 @@ const AntennaSimulation = () => {
           <Alert className="mb-4">
             <AlertDescription>
               {/* Current BER: {(errorRate * 100).toFixed(2)}% |  */}
-              Mode: {mode.toUpperCase()} | 
-              Diversity: {diversityTechnique.toUpperCase()} | 
-              Modulation: {modulationScheme.toUpperCase()} |
-              Time: {timeCounterRef.current}s
+              Mode: {mode.toUpperCase()} | Diversity:{" "}
+              {diversityTechnique.toUpperCase()} | Modulation:{" "}
+              {modulationScheme.toUpperCase()} | Time: {timeCounterRef.current}s
             </AlertDescription>
           </Alert>
 
@@ -317,15 +418,17 @@ const AntennaSimulation = () => {
               <TabsTrigger value="visualization">Visualization</TabsTrigger>
               <TabsTrigger value="advanced">Advanced Settings</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="config">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">System Mode</label>
                   <Select value={mode} onValueChange={setMode}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {configOptions.modes.map(mode => (
+                      {configOptions.modes.map((mode) => (
                         <SelectItem key={mode.value} value={mode.value}>
                           {mode.label}
                         </SelectItem>
@@ -335,12 +438,22 @@ const AntennaSimulation = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Diversity Technique</label>
-                  <Select value={diversityTechnique} onValueChange={setDiversityTechnique}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <label className="text-sm font-medium">
+                    Diversity Technique
+                  </label>
+                  <Select
+                    value={diversityTechnique}
+                    onValueChange={setDiversityTechnique}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {configOptions.diversityTechniques.map(technique => (
-                        <SelectItem key={technique.value} value={technique.value}>
+                      {configOptions.diversityTechniques.map((technique) => (
+                        <SelectItem
+                          key={technique.value}
+                          value={technique.value}
+                        >
                           {technique.label}
                         </SelectItem>
                       ))}
@@ -362,16 +475,18 @@ const AntennaSimulation = () => {
                   </Select>
                 </div> */}
 
-                {mode === 'mimo' && (
+                {mode === "mimo" && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Tx Antennas: {numTxAntennas}</label>
+                    <label className="text-sm font-medium">
+                      Tx Antennas: {numTxAntennas}
+                    </label>
                     <Slider
                       value={[numTxAntennas]}
                       onValueChange={(value) => {
                         const newValue = Math.round(value[0]);
                         setNumTxAntennas(newValue);
                         // Ensure antenna strengths array matches new antenna count
-                        setAntennaStrengths(prev => {
+                        setAntennaStrengths((prev) => {
                           const newStrengths = [...prev];
                           while (newStrengths.length < newValue) {
                             newStrengths.push(1);
@@ -388,10 +503,14 @@ const AntennaSimulation = () => {
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Rx Antennas: {numRxAntennas}</label>
+                  <label className="text-sm font-medium">
+                    Rx Antennas: {numRxAntennas}
+                  </label>
                   <Slider
                     value={[numRxAntennas]}
-                    onValueChange={(value) => setNumRxAntennas(Math.round(value[0]))}
+                    onValueChange={(value) =>
+                      setNumRxAntennas(Math.round(value[0]))
+                    }
                     min={1}
                     max={4}
                     step={1}
@@ -406,9 +525,11 @@ const AntennaSimulation = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Fading Type</label>
                   <Select value={fadingType} onValueChange={setFadingType}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {configOptions.fadingTypes.map(type => (
+                      {configOptions.fadingTypes.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
                           {type.label}
                         </SelectItem>
@@ -418,7 +539,9 @@ const AntennaSimulation = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Noise Level: {noiseLevel.toFixed(2)}</label>
+                  <label className="text-sm font-medium">
+                    Noise Level: {noiseLevel.toFixed(2)}
+                  </label>
                   <Slider
                     value={[noiseLevel]}
                     onValueChange={(value) => setNoiseLevel(value[0])}
@@ -432,7 +555,8 @@ const AntennaSimulation = () => {
                 {Array.from({ length: numTxAntennas }).map((_, idx) => (
                   <div key={`strength-${idx}`} className="space-y-2">
                     <label className="text-sm font-medium">
-                      Antenna {idx + 1} Strength: {antennaStrengths[idx].toFixed(2)}
+                      Antenna {idx + 1} Strength:{" "}
+                      {antennaStrengths[idx].toFixed(2)}
                     </label>
                     <Slider
                       value={[antennaStrengths[idx]]}
@@ -458,7 +582,12 @@ const AntennaSimulation = () => {
                   <div className="flex space-x-4">
                     {Array.from({ length: numTxAntennas }).map((_, idx) => (
                       <div key={`tx-${idx}`} className="relative">
-                        <Image src={"/antenna-3.svg"} alt={"Y"}  width={100} height={100}/ >
+                        <Image
+                          src={"/antenna-3.svg"}
+                          alt={"Y"}
+                          width={100}
+                          height={100}
+                        />
                         <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-200 rounded-full text-xs flex items-center justify-center">
                           {idx + 1}
                         </div>
@@ -472,8 +601,12 @@ const AntennaSimulation = () => {
                     className="flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
                     onClick={() => setIsRunning(!isRunning)}
                   >
-                    {isRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                    {isRunning ? 'Pause' : 'Start'}
+                    {isRunning ? (
+                      <Pause className="w-5 h-5" />
+                    ) : (
+                      <Play className="w-5 h-5" />
+                    )}
+                    {isRunning ? "Pause" : "Start"}
                   </button>
                 </div>
 
@@ -483,14 +616,14 @@ const AntennaSimulation = () => {
                     {Array.from({ length: numRxAntennas }).map((_, idx) => (
                       <div key={`rx-${idx}`} className="relative">
                         <Image
-        src={"/antenna-3.svg"}
-        alt={"Y"}
-        width={100}
-        height={100}
-        style={{
-          transform: 'scaleX(-1)'
-        }}
-      />
+                          src={"/antenna-3.svg"}
+                          alt={"Y"}
+                          width={100}
+                          height={100}
+                          style={{
+                            transform: "scaleX(-1)",
+                          }}
+                        />
                         <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-200 rounded-full text-xs flex items-center justify-center">
                           {idx + 1}
                         </div>
@@ -516,7 +649,7 @@ const AntennaSimulation = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="displayTime" unit="s" />
                   <YAxis domain={[-2, 2]} />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => value.toFixed(3)}
                     labelFormatter={(label) => `Time: ${label}s`}
                   />
@@ -549,7 +682,7 @@ const AntennaSimulation = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="displayTime" unit="s" />
                   <YAxis domain={[-2, 2]} />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => value.toFixed(3)}
                     labelFormatter={(label) => `Time: ${label}s`}
                   />
@@ -582,7 +715,9 @@ const AntennaSimulation = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="border rounded-lg p-4 bg-white">
-                <h3 className="text-lg font-medium mb-4">Signal-to-Noise Ratio</h3>
+                <h3 className="text-lg font-medium mb-4">
+                  Signal-to-Noise Ratio
+                </h3>
                 <LineChart
                   width={400}
                   height={200}
@@ -592,7 +727,7 @@ const AntennaSimulation = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="displayTime" unit="s" />
                   <YAxis unit="dB" />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => `${value.toFixed(2)} dB`}
                     labelFormatter={(label) => `Time: ${label}s`}
                   />
@@ -610,36 +745,116 @@ const AntennaSimulation = () => {
               </div>
 
               <div className="border rounded-lg p-4 bg-white">
-                <h3 className="text-lg font-medium mb-4">Constellation Diagram</h3>
+                <h3 className="text-lg font-medium mb-4">
+                  Constellation Diagram Recieved
+                </h3>
                 <ScatterChart
                   width={400}
                   height={200}
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid />
-                  <XAxis 
-                    type="number" 
-                    dataKey="x" 
-                    name="Real" 
-                    unit="" 
-                    domain={[-2, 2]} 
-                    tickFormatter={(value) => value.toFixed(1)}
-                  />
-                  <YAxis 
-                    type="number" 
-                    dataKey="y" 
-                    name="Imaginary" 
-                    unit="" 
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    name="Real"
+                    unit=""
                     domain={[-2, 2]}
                     tickFormatter={(value) => value.toFixed(1)}
                   />
-                  <Tooltip 
+                  <YAxis
+                    type="number"
+                    dataKey="y"
+                    name="Imaginary"
+                    unit=""
+                    domain={[-2, 2]}
+                    tickFormatter={(value) => value.toFixed(1)}
+                  />
+                  <Tooltip
                     formatter={(value) => value.toFixed(3)}
-                    cursor={{ strokeDasharray: '3 3' }}
+                    cursor={{ strokeDasharray: "3 3" }}
                   />
                   <Scatter
                     name="Symbols"
                     data={constellationData}
+                    fill="#8884d8"
+                    isAnimationActive={false}
+                  />
+                </ScatterChart>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 ">
+              <div className="border rounded-lg p-4 bg-white">
+                <h3 className="text-lg font-medium mb-4">
+                  Constellation Diagram Combined
+                </h3>
+                <ScatterChart
+                  width={400}
+                  height={200}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    name="Real"
+                    unit=""
+                    domain={[-2, 2]}
+                    tickFormatter={(value) => value.toFixed(1)}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="y"
+                    name="Imaginary"
+                    unit=""
+                    domain={[-2, 2]}
+                    tickFormatter={(value) => value.toFixed(1)}
+                  />
+                  <Tooltip
+                    formatter={(value) => value.toFixed(3)}
+                    cursor={{ strokeDasharray: "3 3" }}
+                  />
+                  <Scatter
+                    name="Symbols"
+                    data={constellationDataCombined}
+                    fill="#8884d8"
+                    isAnimationActive={false}
+                  />
+                </ScatterChart>
+              </div>
+              <div className="border rounded-lg p-4 bg-white">
+                <h3 className="text-lg font-medium mb-4">
+                  Constellation Diagram afer decode
+                </h3>
+                <ScatterChart
+                  width={400}
+                  height={200}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid />
+                  <XAxis
+                    type="number"
+                    dataKey="x"
+                    name="Real"
+                    unit=""
+                    domain={[-2, 2]}
+                    tickFormatter={(value) => value.toFixed(1)}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="y"
+                    name="Imaginary"
+                    unit=""
+                    domain={[-2, 2]}
+                    tickFormatter={(value) => value.toFixed(1)}
+                  />
+                  <Tooltip
+                    formatter={(value) => value.toFixed(3)}
+                    cursor={{ strokeDasharray: "3 3" }}
+                  />
+                  <Scatter
+                    name="Symbols"
+                    data={decodedConstellationData}
                     fill="#8884d8"
                     isAnimationActive={false}
                   />

@@ -330,16 +330,7 @@ const AntennaSimulationOne = () => {
                       </p>
                     </div>
                     <p className="mt-2 text-sm">Used when there is no line-of-sight (NLOS) path</p>
-                    
-                    {/* <div className="mt-4 p-4">
-                      <LineChart width={400} height={200} data={rayleighData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" label={{ value: 'Envelope', position: 'bottom' }} />
-                        <YAxis label={{ value: 'PDF', angle: -90, position: 'left' }} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="pdf" stroke="#8884d8" name="Rayleigh PDF" />
-                      </LineChart>
-                    </div> */}
+                  
                   </div>
                 </div>
 
@@ -362,15 +353,6 @@ const AntennaSimulationOne = () => {
                     </div>
                     <p className="mt-2 text-sm">Used when there is a dominant line-of-sight (LOS) path</p>
 
-                    {/* <div className="mt-4">
-                      <LineChart width={400} height={200} data={ricianData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" label={{ value: 'Envelope', position: 'bottom' }} />
-                        <YAxis label={{ value: 'PDF', angle: -90, position: 'left' }} />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="pdf" stroke="#82ca9d" name="Rician PDF" />
-                      </LineChart>
-                    </div> */}
                   </div>
                 </div>
 
