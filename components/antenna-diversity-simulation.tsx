@@ -5,7 +5,7 @@ import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
-import { Play, Pause, Antenna, Info } from 'lucide-react';
+import { Play, Pause, Antenna, Info,Radio, RadioWaves } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const AntennaSimulation = () => {
@@ -62,6 +62,12 @@ const AntennaSimulation = () => {
     const z1 = mag * Math.cos(2 * Math.PI * u2);
     const z2 = mag * Math.sin(2 * Math.PI * u2);
     return { real: z1, imag: z2 };
+  }
+  function calculateSNR(signal, noise) {
+    if (noise <= Number.EPSILON) return 100; // Return high SNR for zero noise
+    const signalPower = Math.pow(signal, 2);
+    const noisePower = Math.pow(noise, 2);
+    return 10 * Math.log10(signalPower / noisePower);
   }
 
   // Rician fading generation
@@ -130,23 +136,33 @@ const AntennaSimulation = () => {
 
   // Signal combining
   function combineSignals(signals, snrs) {
-    try {
-      if (signals.length === 1) return signals[0]; // Single receiver case
-      switch (diversityTechnique) {
-        case 'sc':
-          const strongestIndex = snrs.indexOf(Math.max(...snrs));
-          return signals[strongestIndex];
-        case 'egc':
-          return signals.reduce((sum, s) => sum + s, 0) / signals.length;
-        case 'mrc':
-        default:
-          const weights = snrs.map(snr => Math.pow(10, snr / 10));
-          const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-          return signals.reduce((sum, s, i) => sum + s * weights[i], 0) / totalWeight;
+    if (signals.length === 0) return { real: 0, imag: 0 };
+    if (signals.length === 1) return signals[0];
+
+    switch (diversityTechnique) {
+      case 'sc': {
+        const strongestIndex = snrs.indexOf(Math.max(...snrs));
+        return signals[strongestIndex];
       }
-    } catch (error) {
-      console.error('Error combining signals:', error);
-      return signals[0] || 0;
+      case 'egc': {
+        const normalizedSignals = signals.map(s => ({
+          real: s.real / Math.sqrt(s.real * s.real + s.imag * s.imag),
+          imag: s.imag / Math.sqrt(s.real * s.real + s.imag * s.imag)
+        }));
+        return {
+          real: normalizedSignals.reduce((sum, s) => sum + s.real, 0) / signals.length,
+          imag: normalizedSignals.reduce((sum, s) => sum + s.imag, 0) / signals.length
+        };
+      }
+      case 'mrc':
+      default: {
+        const weights = snrs.map(snr => Math.pow(10, snr / 20)); // Convert dB to linear scale
+        const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+        return {
+          real: signals.reduce((sum, s, i) => sum + s.real * weights[i], 0) / totalWeight,
+          imag: signals.reduce((sum, s, i) => sum + s.imag * weights[i], 0) / totalWeight
+        };
+      }
     }
   }
     
@@ -164,15 +180,16 @@ const AntennaSimulation = () => {
 
     // Generate transmit signals
     const txSignals = [];
+    const rxSignalsArray = Array(numRxAntennas).fill().map(() => []);
+    
     for (let i = 0; i < numTxAntennas; i++) {
       const baseSignal = antennaStrengths[i] * 
         Math.sin(2 * Math.PI * frequency * absoluteTime * 0.1 + (i * Math.PI / numTxAntennas));
-      const modulatedSignal = modulateSignal(baseSignal);
       point[`tx${i + 1}`] = baseSignal;
-      txSignals.push({ ...modulatedSignal, strength: antennaStrengths[i] });
+      txSignals.push({ real: baseSignal, imag: 0 });
     }
 
-    // Process receive signals
+    // Process receive signals with improved combining
     const rxSignals = [];
     const rxSNRs = [];
     
@@ -181,57 +198,52 @@ const AntennaSimulation = () => {
       let signalPower = 0;
       
       for (let j = 0; j < numTxAntennas; j++) {
-        const fading = generateFading();
-        const channelResponse = fading.magnitude * txSignals[j].strength;
+        const channelGain = noiseLevel <= Number.EPSILON ? 1 : Math.random();
+        signalPower += channelGain * channelGain * 
+          (txSignals[j].real * txSignals[j].real + txSignals[j].imag * txSignals[j].imag);
         
-        rxSignal.real += channelResponse * 
-          (txSignals[j].real * Math.cos(fading.phase) - txSignals[j].imag * Math.sin(fading.phase));
-        rxSignal.imag += channelResponse * 
-          (txSignals[j].real * Math.sin(fading.phase) + txSignals[j].imag * Math.cos(fading.phase));
-        
-        signalPower += channelResponse * channelResponse;
+        rxSignal.real += channelGain * txSignals[j].real;
+        rxSignal.imag += channelGain * txSignals[j].imag;
       }
 
-      const noise = generateGaussianNoise(noiseLevel);
-      rxSignal.real += noise.real;
-      rxSignal.imag += noise.imag;
-      
+      if (noiseLevel > Number.EPSILON) {
+        const noise = generateGaussianNoise(noiseLevel);
+        rxSignal.real += noise.real;
+        rxSignal.imag += noise.imag;
+      }
+
       const rxMagnitude = Math.sqrt(rxSignal.real * rxSignal.real + rxSignal.imag * rxSignal.imag);
       point[`rx${i + 1}`] = rxMagnitude;
-      rxSignals.push(rxMagnitude);
+      rxSignals.push(rxSignal);
 
-      const noisePower = noiseLevel * noiseLevel;
-      const snr = 10 * Math.log10(signalPower / noisePower);
+      const snr = calculateSNR(rxMagnitude, noiseLevel);
       rxSNRs.push(snr);
 
-      if (i === 0) {
-        setConstellationData(prev => [
-          ...prev.slice(-100),
-          { x: rxSignal.real, y: rxSignal.imag, snr: snr }
-        ]);
-      }
+      setConstellationData(prev => [
+        ...prev.slice(-50),
+        { x: rxSignal.real, y: rxSignal.imag, antenna: i + 1 }
+      ]);
     }
 
     const combinedSignal = combineSignals(rxSignals, rxSNRs);
-    point.combinedSignal = combinedSignal;
+    point.combinedSignal = Math.sqrt(
+      combinedSignal.real * combinedSignal.real + 
+      combinedSignal.imag * combinedSignal.imag
+    );
 
-    const decodedSymbol = combinedSignal > 0 ? 1 : 0;
-    if (decodedSymbol !== txSignals[0].originalSymbol) {
-      errorCountRef.current++;
-    }
-    totalBitsRef.current++;
-    
-    if (totalBitsRef.current > 0) {
-      setErrorRate(errorCountRef.current / totalBitsRef.current);
-    }
+    setConstellationData(prev => [
+      ...prev.slice(-50),
+      { x: combinedSignal.real, y: combinedSignal.imag }
+    ]);
 
-    powerWindowRef.current = [...powerWindowRef.current.slice(-WINDOW_SIZE + 1), combinedSignal];
-    const signalPower = powerWindowRef.current.reduce((acc, val) => acc + val * val, 0) / WINDOW_SIZE;
+    // Update SNR calculation
+    const signalPower = point.combinedSignal * point.combinedSignal;
     const noisePower = noiseLevel * noiseLevel;
-    point.snr = 10 * Math.log10(signalPower / noisePower);
+    point.snr = noiseLevel <= Number.EPSILON ? 100 : 10 * Math.log10(signalPower /( noisePower/numRxAntennas));
 
     return point;
   }
+
 
   // Initialize simulation
   useEffect(() => {
@@ -507,7 +519,7 @@ const AntennaSimulation = () => {
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" unit="s" />
+                  <XAxis dataKey="displayTime" unit="s" />
                   <YAxis domain={[-2, 2]} />
                   <Tooltip 
                     formatter={(value) => value.toFixed(3)}
@@ -540,7 +552,7 @@ const AntennaSimulation = () => {
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" unit="s" />
+                  <XAxis dataKey="displayTime" unit="s" />
                   <YAxis domain={[-2, 2]} />
                   <Tooltip 
                     formatter={(value) => value.toFixed(3)}
@@ -563,10 +575,11 @@ const AntennaSimulation = () => {
                     type="monotone"
                     dataKey="combinedSignal"
                     stroke="#000"
-                    strokeWidth={2}
+                    strokeDasharray="5 5"
                     dot={false}
                     name="Combined Signal"
                     isAnimationActive={false}
+                    strokeWidth={2}
                   />
                 </LineChart>
               </div>
@@ -582,7 +595,7 @@ const AntennaSimulation = () => {
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" unit="s" />
+                  <XAxis dataKey="displayTime" unit="s" />
                   <YAxis unit="dB" />
                   <Tooltip 
                     formatter={(value) => `${value.toFixed(2)} dB`}
