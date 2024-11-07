@@ -5,23 +5,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Antenna, Radio, Waves, ArrowRight } from 'lucide-react';
 
+
 const AntennaSimulationOne = () => {
   const [snrValue, setSnrValue] = useState(10);
   const [kFactor, setKFactor] = useState(5);
   
   // Generate BER vs SNR data
-  const generateBERData = (antennaCount) => {
+  function erfc(x) {
+    const z = Math.abs(x);
+    const t = 1 / (1 + 0.5 * z);
+    const ans = t * Math.exp(-z * z - 1.26551223 + 
+                  t * (1.00002368 + 
+                  t * (0.37409196 + 
+                  t * (0.09678418 + 
+                  t * (-0.18628806 + 
+                  t * (0.27886807 + 
+                  t * (-1.13520398 + 
+                  t * (1.48851587 + 
+                  t * (-0.82215223 + 
+                  t * 0.17087277)))))))));
+  
+    return x >= 0 ? ans : 2 - ans;
+  }
+  
+  function generateBERData(numAntennas) {
     return Array.from({ length: 20 }, (_, i) => {
       const snr = i * 2;
-      const ber = Math.exp(-antennaCount * snr / 10) / 2;
-      return {
-        snr,
-        ber: ber.toFixed(6),
-        name: `${snr} dB`
-      };
+      const ber = 0.5 * erfc(Math.sqrt(10 ** (snr / 10)) / Math.sqrt(2 * numAntennas));
+      return { snr, ber: ber.toFixed(6), name: `${snr} dB` };
     });
-  };
-  const generateRayleighData = () => {
+  }
+  
+  
+  
+  function generateRayleighData(snrValue) {
     return Array.from({ length: 50 }, (_, i) => {
       const x = i / 5;
       // PDF of Rayleigh distribution
@@ -32,8 +49,8 @@ const AntennaSimulationOne = () => {
         name: x.toFixed(1)
       };
     });
-  };
-  const generateRicianData = () => {
+  }
+  function generateRicianData(snrValue, kFactor) {
     return Array.from({ length: 50 }, (_, i) => {
       const x = i / 5;
       // Simplified Rician PDF (approximation)
@@ -46,16 +63,16 @@ const AntennaSimulationOne = () => {
         name: x.toFixed(1)
       };
     });
-  };
+  }
+  
 
 
   // Simulation data for different antenna configurations
   const singleAntennaData = generateBERData(1);
   const twoAntennaData = generateBERData(2);
   const fourAntennaData = generateBERData(4);
-  const rayleighData = generateRayleighData();
-  const ricianData = generateRicianData();
-
+  const rayleighData = generateRayleighData(snrValue);
+  const ricianData = generateRicianData(snrValue, kFactor);
   return (
     <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
       <Tabs defaultValue="overview">
@@ -170,10 +187,10 @@ const AntennaSimulationOne = () => {
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <h4 className="font-medium mb-2">Performance Analysis</h4>
-                  <LineChart width={500} height={300} data={twoAntennaData}>
+                  <LineChart width={500} height={300} data={singleAntennaData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" label={{ value: 'SNR (dB)', position: 'bottom' }} />
-                    <YAxis label={{ value: 'BER', angle: -90, position: 'left' }} />
+                    <XAxis dataKey="name" domain={['auto', 'auto']} label={{ value: 'SNR (dB)', position: 'bottom' }} />
+                    <YAxis scale="log" domain={['auto', 'auto']} label={{ value: 'BER', angle: -90, position: 'left' }} />
                     <Tooltip />
                     <Legend />
                     <Line type="monotone" dataKey="ber" stroke="#8884d8" name="BER vs SNR" />
@@ -215,7 +232,8 @@ const AntennaSimulationOne = () => {
                   <LineChart width={500} height={300} data={twoAntennaData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" label={{ value: 'SNR (dB)', position: 'bottom' }} />
-                    <YAxis label={{ value: 'BER', angle: -90, position: 'left' }} />
+                    <YAxis scale="log" domain={['auto', 'auto']} label={{ value: 'BER', angle: -90, position: 'left' }} />
+
                     <Tooltip />
                     <Legend />
                     <Line type="monotone" dataKey="ber" stroke="#82ca9d" name="Alamouti MISO" />
@@ -255,7 +273,8 @@ const AntennaSimulationOne = () => {
                   <LineChart width={500} height={300} data={fourAntennaData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" label={{ value: 'SNR (dB)', position: 'bottom' }} />
-                    <YAxis label={{ value: 'BER', angle: -90, position: 'left' }} />
+                    <YAxis scale="log" domain={['auto', 'auto']} label={{ value: 'BER', angle: -90, position: 'left' }} />
+
                     <Tooltip />
                     <Legend />
                     <Line type="monotone" dataKey="ber" stroke="#ff7300" name="4x4 MIMO" />

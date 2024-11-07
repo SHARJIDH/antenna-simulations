@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter } from 'recharts';
 import { Play, Pause, Antenna, Info,Radio, RadioWaves } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import Image from 'next/image';
 
 const AntennaSimulation = () => {
   // State management
@@ -457,14 +458,7 @@ const AntennaSimulation = () => {
                   <div className="flex space-x-4">
                     {Array.from({ length: numTxAntennas }).map((_, idx) => (
                       <div key={`tx-${idx}`} className="relative">
-                        <Antenna
-                          className="w-8 h-8 text-blue-500"
-                          style={{
-                            transform: `rotate(${45 * idx}deg)`,
-                            opacity: isRunning ? '1' : '0.5',
-                            transition: 'all 0.3s ease'
-                          }}
-                        />
+                        <Image src={"/antenna-3.svg"} alt={"Y"}  width={100} height={100}/ >
                         <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-200 rounded-full text-xs flex items-center justify-center">
                           {idx + 1}
                         </div>
@@ -488,14 +482,15 @@ const AntennaSimulation = () => {
                   <div className="flex space-x-4">
                     {Array.from({ length: numRxAntennas }).map((_, idx) => (
                       <div key={`rx-${idx}`} className="relative">
-                        <Antenna
-                          className="w-8 h-8 text-green-500"
-                          style={{
-                            transform: `rotate(${-45 * idx}deg)`,
-                            opacity: isRunning ? '1' : '0.5',
-                            transition: 'all 0.3s ease'
-                          }}
-                        />
+                        <Image
+        src={"/antenna-3.svg"}
+        alt={"Y"}
+        width={100}
+        height={100}
+        style={{
+          transform: 'scaleX(-1)'
+        }}
+      />
                         <div className="absolute -top-2 -right-2 w-4 h-4 bg-green-200 rounded-full text-xs flex items-center justify-center">
                           {idx + 1}
                         </div>
