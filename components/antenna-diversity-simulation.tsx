@@ -585,8 +585,8 @@ const AntennaSimulation = () => {
                         <Image
                           src={"/antenna-3.svg"}
                           alt={"Y"}
-                          width={100}
-                          height={100}
+                          width={60}
+                          height={60}
                         />
                         <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-200 rounded-full text-xs flex items-center justify-center">
                           {idx + 1}
@@ -618,8 +618,8 @@ const AntennaSimulation = () => {
                         <Image
                           src={"/antenna-3.svg"}
                           alt={"Y"}
-                          width={100}
-                          height={100}
+                          width={60}
+                          height={60}
                           style={{
                             transform: "scaleX(-1)",
                           }}
